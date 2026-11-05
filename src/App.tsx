@@ -210,7 +210,13 @@ function StudioShell() {
           throw new Error('Nem töltődött le egyetlen szezonadat sem.');
         }
 
-        await importFiles(files, 'auto');
+        const outcome = await importFiles(files, 'auto');
+        if (outcome === 'skipped') {
+          throw new Error('Másik adatművelet fut, próbáld újra.');
+        }
+        if (outcome === 'failed') {
+          throw new Error('Az adatok importálása nem sikerült.');
+        }
 
         // Remember which server version this browser now holds.
         writeCloudMarker(version);

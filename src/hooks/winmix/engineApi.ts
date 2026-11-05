@@ -16,6 +16,7 @@ import type {
 } from '../../types/winmix';
 import type { computeMarketFeedback, patternWeightsFromSlips } from '../../utils/ledger';
 import type {
+  ImportOutcome,
   ImportPreviewState,
   PipelineRunInfo,
   RecoveryNotice,
@@ -66,7 +67,7 @@ export interface UseWinmixEngineReturn {
   deleteSeason: (id: string) => Promise<void>;
   pruneOldestSeason: () => Promise<void>;
   clearAll: () => Promise<void>;
-  importFiles: (fileList: FileList | File[], mode: LeagueMode) => Promise<void>;
+  importFiles: (fileList: FileList | File[], mode: LeagueMode) => Promise<ImportOutcome>;
   dismissUploadResult: () => void;
   dismissRecoveryNotice: () => void;
   setWeight: (

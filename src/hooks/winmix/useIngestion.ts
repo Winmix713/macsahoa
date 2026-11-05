@@ -7,7 +7,7 @@ import { readFilesWithConcurrency } from '../../utils/csv';
 import { isCloudTierConfigured } from '../../utils/supabaseTier';
 import { applyRecommendedTeamWeights, errorMessage, pct } from './helpers';
 import { ingestCsvFiles } from './ingest';
-import type { DomainState, UploadResult } from './types';
+import type { DomainState, ImportOutcome, UploadResult } from './types';
 import type { LogDiagnostic } from './useDiagnostics';
 import type { PipelineRunner } from './usePipelineRunner';
 
@@ -39,11 +39,11 @@ export function useIngestion({
   const dismissUploadResult = useCallback(() => setUploadResult(null), []);
 
   const importFiles = useCallback(
-    async (fileList: FileList | File[], mode: LeagueMode) => {
+    async (fileList: FileList | File[], mode: LeagueMode): Promise<ImportOutcome> => {
       const files = Array.from(fileList);
-      if (files.length === 0) return;
+      if (files.length === 0) return 'skipped';
 
-      await withPipelineLock(async (runId) => {
+      const outcome = await withPipelineLock<ImportOutcome>(async (runId) => {
         setUploadResult(null);
         report({ label: `Fájlok beolvasása… 0/${files.length}`, pct: 0 }, true);
 
@@ -60,7 +60,7 @@ export function useIngestion({
             },
             (message) => logDiagnostic('error', message)
           );
-          if (isStale(runId)) return;
+          if (isStale(runId)) return 'skipped';
 
           // Phase 2 (60–90%): pure parse/validate/dedupe.
           const snapshot = stateRef.current;
@@ -82,7 +82,7 @@ export function useIngestion({
               });
             }
           );
-          if (isStale(runId)) return;
+          if (isStale(runId)) return 'skipped';
 
           let working: DomainState = {
             ...snapshot,
@@ -110,7 +110,7 @@ export function useIngestion({
               working,
               'Pipeline (as-of) számítás'
             );
-            if (isStale(runId)) return;
+            if (isStale(runId)) return 'skipped';
           }
 
           resetWeightDraft();
@@ -154,11 +154,14 @@ export function useIngestion({
               'Egyetlen fájl sem került rögzítésre — nézd meg a figyelmeztetéseket.'
             );
           }
+          return 'committed';
         } catch (e) {
           logDiagnostic('error', `Import hiba: ${errorMessage(e)}`);
           toast.error('Az import hibára futott — részletek a diagnosztikai naplóban.');
+          return 'failed';
         }
       });
+      return outcome ?? 'skipped';
     },
     [
       commit,
